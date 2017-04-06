@@ -17047,6 +17047,7 @@ Source: AVX .. aphvc.pdf</description>
 <pinref part="G1" gate="G$1" pin="-"/>
 <wire x1="198.12" y1="99.06" x2="185.42" y2="99.06" width="0.1524" layer="91"/>
 <wire x1="185.42" y1="99.06" x2="185.42" y2="96.52" width="0.1524" layer="91"/>
+<junction x="185.42" y="99.06"/>
 </segment>
 <segment>
 <pinref part="C2" gate="G$1" pin="2"/>
@@ -17522,7 +17523,7 @@ Source: AVX .. aphvc.pdf</description>
 <label x="137.16" y="121.92" size="1.778" layer="95"/>
 </segment>
 </net>
-<net name="N$6" class="0">
+<net name="VBAT" class="0">
 <segment>
 <pinref part="IC3" gate="G$1" pin="VBAT"/>
 <wire x1="200.66" y1="111.76" x2="208.28" y2="111.76" width="0.1524" layer="91"/>
