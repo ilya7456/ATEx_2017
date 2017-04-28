@@ -345,7 +345,7 @@ bool memorystorage::recycle()
 bool memorystorage::dumpbuf()
 {
   writeEEPROM(ADDRESSOFEEPROM, 0, (thiswrite&0xFF));
-  writeEEPROM(ADDRESSOFEEPROM, 0, (thiswrite&0xFF00)>>8);
+  writeEEPROM(ADDRESSOFEEPROM, 1, (thiswrite&0xFF00)>>8);
   return true;
 }
 
