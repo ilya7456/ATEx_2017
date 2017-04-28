@@ -16,11 +16,11 @@ void setup(void)
  Serial.println();
   unsigned int address = 0;
  
-  writeEEPROM(disk1, 0, 0);
-  writeEEPROM(disk1, 1, 3);
-  writeEEPROM(disk1, 2, 0);
+  //writeEEPROM(disk1, 0, 3);
+  //writeEEPROM(disk1, 1, 0);
+  //writeEEPROM(disk1, 2, 0);
   //Serial.print(readEEPROM(disk1, address), HEX);
-  for(int i = 0; i < 1000; i++)
+  for(int i = 0; i < 10000; i++)
   {
     //writeEEPROM(disk1, i, 1000-i);
     //Serial.println(i);

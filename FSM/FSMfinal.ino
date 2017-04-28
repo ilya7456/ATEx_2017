@@ -50,11 +50,11 @@ private:
 };
 
 #define TEMP1_PIN 7
-#define TEMP2_PIN 9
+#define TEMP2_PIN 6
 #define TEMP3_PIN 10
 
 float readTEMP(OneWire ds);
-void MPUSENSOR(memorystorage store);
+void MPUSENSOR(memorystorage &store);
 long conftol(float a);
 float getPressure();
 volatile int takereading;
@@ -63,7 +63,8 @@ volatile int takereading;
 OneWire ds1(TEMP1_PIN);
 OneWire ds2(TEMP2_PIN);
 //OneWire ds3(TEMP3_PIN);
-float r1, r2, r3;
+float readTEMP1();
+float readTEMP2();
 //Temp Sensor End  -------------------------------------------------------------------------------------------------------------------
 
 //GAM Sensor  -------------------------------------------------------------------------------------------------------------------
@@ -165,11 +166,8 @@ switch(state){
     state = TEMP;
     break;
   case TEMP://device number 0x1-0x3
-      ds1.write(0x44,1);
-      ds2.write(0x44,1);
-      delay(750);
-      store.writedata(0x1, conftol(readTEMP(ds1)));
-      store.writedata(0x2, conftol(readTEMP(ds2)));
+      store.writedata(0x1, long(readTEMP1()*10));
+      store.writedata(0x2, long(readTEMP2()*10));
       state = MPU;
     break;
   case MPU://device number 0x4-0xC
@@ -177,7 +175,7 @@ switch(state){
     state = TIME;
     break;;
   case TIME://device number 0xE
-    store.writedata(0xE,0xFFFF);
+    //store.writedata(0xE,0xFFFF);
     state = EEP;
     break;
   case EEP:
@@ -189,7 +187,7 @@ switch(state){
  }
 }
 
-void MPUSENSOR(memorystorage store)
+void MPUSENSOR(memorystorage &store)
 {
   myIMU.readAccelData(myIMU.accelCount);  // Read the x/y/z adc values
     myIMU.getAres();
@@ -231,38 +229,17 @@ void MPUSENSOR(memorystorage store)
 
   MahonyQuaternionUpdate(myIMU.ax, myIMU.ay, myIMU.az, myIMU.gx*DEG_TO_RAD, myIMU.gy*DEG_TO_RAD, myIMU.gz*DEG_TO_RAD, myIMU.my, myIMU.mx, myIMU.mz, myIMU.deltat);
   
-  store.writedata(0x4,conftol(myIMU.ax));
-  store.writedata(0x5,conftol(myIMU.ay));
-  store.writedata(0x6,conftol(myIMU.az));
+  store.writedata(0x4,long(myIMU.ax*100));
+  store.writedata(0x5,long(myIMU.ay*100));
+  store.writedata(0x6,long(myIMU.az*100));
   
-  store.writedata(0x7,conftol(myIMU.gx));
-  store.writedata(0x8,conftol(myIMU.gy));
-  store.writedata(0x9,conftol(myIMU.gz));
+  store.writedata(0x7,long(myIMU.gx*100));
+  store.writedata(0x8,long(myIMU.gy*100));
+  store.writedata(0x9,long(myIMU.gz*100));
   
-  store.writedata(0xA,conftol(myIMU.mx));
-  store.writedata(0xB,conftol(myIMU.mx));
-  store.writedata(0xC,conftol(myIMU.mx));
-}
-
-int what_are(const char *a)
-{
-  char b [3] = {'o','u','t'};
-  char c [3] = {'r','e','s'};
-  int equal = 1;
-    for (int i = 0; i < 3; i++)
-    {
-        if (a[i] != b[i])
-      equal = 0;
-    }
-  if(equal == 1)
-    return 1;
-  equal = 2;
-    for (int i = 0; i < 3; i++)
-    {
-        if (a[i] != c[i])
-      equal = 0;
-    }
-  return equal;
+  store.writedata(0xA,long(myIMU.mx*100));
+  store.writedata(0xB,long(myIMU.mx*100));
+  store.writedata(0xC,long(myIMU.mx*100));
 }
 
 long conftol(float a)
@@ -370,12 +347,19 @@ bool memorystorage::writedata(byte devicenumber, long data)
   devicedata nstore;
   writeEEPROM(ADDRESSOFEEPROM, thiswrite,devicenumber);
   thiswrite++;
-  unsigned char *buf;
-  buf = (unsigned char*)&data;
-  writeEEPROM(ADDRESSOFEEPROM, thiswrite, buf[0]);
-  writeEEPROM(ADDRESSOFEEPROM, thiswrite, buf[1]);
-  writeEEPROM(ADDRESSOFEEPROM, thiswrite, buf[2]);
-  writeEEPROM(ADDRESSOFEEPROM, thiswrite, buf[3]);
+  unsigned char byteArray[4];
+  byteArray[0] = (int)((data >> 24) & 0xFF) ;
+  byteArray[1] = (int)((data >> 16) & 0xFF) ;
+  byteArray[2] = (int)((data >> 8) & 0XFF);
+  byteArray[3] = (int)((data & 0XFF));
+  writeEEPROM(ADDRESSOFEEPROM, thiswrite, byteArray[0]);
+  thiswrite++;
+  writeEEPROM(ADDRESSOFEEPROM, thiswrite, byteArray[1]);
+  thiswrite++;
+  writeEEPROM(ADDRESSOFEEPROM, thiswrite, byteArray[2]);
+  thiswrite++;
+  writeEEPROM(ADDRESSOFEEPROM, thiswrite, byteArray[3]);
+  thiswrite++;
   return true;
 }
 
@@ -404,4 +388,98 @@ byte readEEPROM(int deviceaddress, unsigned int eeaddress )
   if (Wire.available()) rdata = Wire.read();
  
   return rdata;
+}
+
+float readTEMP1()
+{
+  byte data[12];
+  byte addr[8];
+
+  if ( !ds1.search(addr)) {
+      //no more sensors on chain, reset search
+      ds1.reset_search();
+      return -1000;
+  }
+
+  if ( OneWire::crc8( addr, 7) != addr[7]) {
+      Serial.println("CRC is not valid!");
+      return -1000;
+  }
+
+  if ( addr[0] != 0x10 && addr[0] != 0x28) {
+      Serial.print("Device is not recognized");
+      return -1000;
+  }
+
+  ds1.reset();
+  ds1.select(addr);
+  ds1.write(0x44,1); // start conversion, with parasite power on at the end
+  
+  delay(750); // Wait for temperature conversion to complete
+
+  byte present = ds2.reset();
+  ds1.select(addr);    
+  ds1.write(0xBE); // Read Scratchpad
+
+  
+  for (int i = 0; i < 9; i++) { // we need 9 bytes
+    data[i] = ds2.read();
+  }
+  
+  ds1.reset_search();
+  
+  byte MSB = data[1];
+  byte LSB = data[0];
+
+  float tempRead = ((MSB << 8) | LSB); //using two's compliment
+  float TemperatureSum = tempRead / 16;
+  
+  return TemperatureSum;
+}
+
+float readTEMP2()
+{
+  byte data[12];
+  byte addr[8];
+
+  if ( !ds2.search(addr)) {
+      //no more sensors on chain, reset search
+      ds2.reset_search();
+      return -1000;
+  }
+
+  if ( OneWire::crc8( addr, 7) != addr[7]) {
+      Serial.println("CRC is not valid!");
+      return -1000;
+  }
+
+  if ( addr[0] != 0x10 && addr[0] != 0x28) {
+      Serial.print("Device is not recognized");
+      return -1000;
+  }
+
+  ds2.reset();
+  ds2.select(addr);
+  ds2.write(0x44,1); // start conversion, with parasite power on at the end
+  
+  delay(750); // Wait for temperature conversion to complete
+
+  byte present = ds2.reset();
+  ds2.select(addr);    
+  ds2.write(0xBE); // Read Scratchpad
+
+  
+  for (int i = 0; i < 9; i++) { // we need 9 bytes
+    data[i] = ds2.read();
+  }
+  
+  ds2.reset_search();
+  
+  byte MSB = data[1];
+  byte LSB = data[0];
+
+  float tempRead = ((MSB << 8) | LSB); //using two's compliment
+  float TemperatureSum = tempRead / 16;
+  
+  return TemperatureSum;
 }
