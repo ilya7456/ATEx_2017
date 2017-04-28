@@ -10,6 +10,7 @@
 void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data );
 byte readEEPROM(int deviceaddress, unsigned int eeaddress );
 
+#define ISR_timer 1600
 #define ADDRESSOFEEPROM 0x50
 #define MEMORY_SIZE 0x8000
 
@@ -132,6 +133,55 @@ void setup() {
     Serial.println(c, HEX);
   }
   Serial.end();
+  pinMode(5, OUTPUT);
+
+  cli();//stop interrupts
+
+  //set timer1 interrupt at 1Hz
+  TCCR1A = 0;// set entire TCCR1A register to 0
+  TCCR1B = 0;// same for TCCR1B
+  TCNT1  = 0;//initialize counter value to 0
+  // set compare match register for 1hz increments
+  OCR1A = 65535;// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  // turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Set CS10 and CS12 bits for 1024 prescaler
+  TCCR1B |= (1 << CS12) | (1 << CS10);  
+// enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+
+sei();//allow interrupts
+}
+
+
+volatile int count = 0;
+volatile bool servo_activated = false;
+
+ISR(TIMER1_COMPA_vect){//timer1 interrupt 1Hz toggles pin 12 (LED)
+//generates pulse wave of frequency 1Hz/2 = 0.5kHz (takes two cycles for full wave- toggle high then toggle low)
+
+ if (servo_activated) {
+    return;
+  }
+  
+ if(count < ISR_timer)
+  {
+   count++;
+  }
+  else
+   {
+    servo_activated = true;
+    for (int myAngle=0; myAngle<=180; myAngle++) {
+      int pulseWidth = (myAngle * 2.2) + 1500;  // converts angle to microseconds
+      Serial.println(pulseWidth);
+      digitalWrite(5, HIGH);       // set servo high
+      delayMicroseconds(pulseWidth);      // wait a very small amount
+      digitalWrite(5, LOW);        // set servo low
+      delay(2.5);
+      digitalWrite(5, HIGH);
+    }
+    count = 0;
+  }
 }
 
 void loop(){
